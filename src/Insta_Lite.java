@@ -1,155 +1,23 @@
 import java.util.*;
 import java.sql.*;
 import java.io.*;
+import java.util.Date;
+import java.time.LocalDate;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+// ------------------------------- DB CONNECTION -------------------------------
 class DBConnection {
-    static final String URL = "jdbc:sqlite:Insta_Lite.db";
+    private static final String URL = "jdbc:mysql://localhost:3306/Instalite";
+    private static final String USER = "root";
+    private static final String PASS = "";
+    private DBConnection() {} //Abstraction
 
     public static Connection getConnection() throws SQLException {
-        try {
-            Class.forName("org.sqlite.JDBC");
-            return DriverManager.getConnection(URL);
-        } catch (ClassNotFoundException e) {
-            throw new SQLException("SQLite driver missing.");
-        }
-    }
-
-    public static void initializeDatabase() {
-        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-            System.out.println("Initializing SQLite Database...");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Users (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "Username TEXT UNIQUE NOT NULL," +
-                    "Password TEXT NOT NULL," +
-                    "Email_id TEXT," +
-                    "Mobile_no TEXT," +
-                    "Friends INTEGER DEFAULT 0," +
-                    "Bio TEXT," +
-                    "is_active INTEGER DEFAULT 1" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS FriendRequests (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "Sender_Id INTEGER," +
-                    "Sender_name TEXT," +
-                    "Receiver_Id INTEGER," +
-                    "Status TEXT CHECK(Status IN ('PENDING', 'ACCEPTED', 'REJECTED')) DEFAULT 'PENDING'," +
-                    "UNIQUE(Sender_Id, Receiver_Id)," +
-                    "FOREIGN KEY (Sender_Id) REFERENCES Users(Id)," +
-                    "FOREIGN KEY (Receiver_Id) REFERENCES Users(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Image (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "User_id INTEGER," +
-                    "Username TEXT," +
-                    "Caption TEXT," +
-                    "Size_kb INTEGER," +
-                    "File_name TEXT," +
-                    "Time TEXT DEFAULT (datetime('now', 'localtime'))," +
-                    "FOREIGN KEY (user_id) REFERENCES Users(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Vedio (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "User_id INTEGER," +
-                    "Username TEXT," +
-                    "Caption TEXT," +
-                    "Size_kb INTEGER," +
-                    "File_name TEXT," +
-                    "Time TEXT DEFAULT (datetime('now', 'localtime'))," +
-                    "FOREIGN KEY (user_id) REFERENCES Users(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Messages (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "Sender_id INTEGER," +
-                    "Receiver_id INTEGER," +
-                    "Sender_name TEXT," +
-                    "Content TEXT," +
-                    "timestamp TEXT DEFAULT (datetime('now', 'localtime'))," +
-                    "FOREIGN KEY (Sender_id) REFERENCES Users(Id)," +
-                    "FOREIGN KEY (Receiver_id) REFERENCES Users(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Reels (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "Caption TEXT," +
-                    "File_path TEXT," +
-                    "Time TEXT DEFAULT (datetime('now', 'localtime'))" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Likes (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "Username TEXT," +
-                    "User_id INTEGER," +
-                    "Reel_id INTEGER," +
-                    "UNIQUE(User_id, Reel_id)," +
-                    "FOREIGN KEY (User_id) REFERENCES Users(Id)," +
-                    "FOREIGN KEY (Reel_id) REFERENCES Reels(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Saves (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "Username TEXT," +
-                    "User_id INTEGER," +
-                    "Reel_id INTEGER," +
-                    "UNIQUE(User_id, Reel_id)," +
-                    "FOREIGN KEY (User_id) REFERENCES Users(Id)," +
-                    "FOREIGN KEY (Reel_id) REFERENCES Reels(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Wellbeing (" +
-                    "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "User_id INTEGER," +
-                    "Session_date TEXT," +
-                    "Duration_minutes INTEGER," +
-                    "FOREIGN KEY (User_id) REFERENCES Users(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Games (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "user_id INTEGER NOT NULL," +
-                    "username TEXT NOT NULL," +
-                    "game_name TEXT NOT NULL," +
-                    "played_at TEXT NOT NULL," +
-                    "won INTEGER NOT NULL," +
-                    "FOREIGN KEY (user_id) REFERENCES Users(Id)" +
-                    ")");
-
-            stmt.execute("CREATE TABLE IF NOT EXISTS Stats (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "user_id INTEGER UNIQUE NOT NULL," +
-                    "username TEXT NOT NULL," +
-                    "streak INTEGER DEFAULT 0," +
-                    "points INTEGER DEFAULT 0," +
-                    "last_played_date TEXT," +
-                    "FOREIGN KEY (user_id) REFERENCES Users(Id) ON DELETE CASCADE" +
-                    ")");
-
-            ResultSet rs = stmt.executeQuery("SELECT count(*) FROM Reels;");
-            if (rs.getInt(1) == 0) {
-                String insertReels = "INSERT INTO Reels (Caption, File_path) VALUES " +
-                        "('Move On isnt Easy But Keep Trying', 'Reels/1.mp4')," +
-                        "('Alakh Pandey - PhysicsWallah Motivation', 'Reels/2.mp4')," +
-                        "('Best decision are something to let go', 'Reels/6.mp4')," +
-                        "('What Love Looks Like', 'Reels/7.mp4')," +
-                        "('Motivation for Starting something new', 'Reels/11.mp4');";
-                stmt.execute(insertReels);
-            }
-
-            System.out.println("Database Initialized successfully.");
-
-        } catch (SQLException e) {
-            System.err.println("Database initialization error: " + e.getMessage());
-        }
+        return DriverManager.getConnection(URL, USER, PASS);
     }
 }
 
+// ------------------------------- USER PROFILE (Encapsulation) -------------------------------
 class UserProfile {
     private String username;
     private String email;
@@ -178,10 +46,19 @@ class UserProfile {
     }
 }
 
-class User{
+// ------------------------------- SOCIAL FEATURES (Abstraction) -------------------------------
+interface SocialFeatures {
+    void sendRequest(int senderId, int receiverId);
+    void sendMessage(int senderId);
+}
+
+// ------------------------------- USER -------------------------------
+class User implements SocialFeatures {
     Scanner sc = new Scanner(System.in);
-    static int loggedInUserId = -1;
-    static String loggedInUserName = null;
+
+    // Encapsulation - Protects sensitive information
+    private static int loggedInUserId = -1;
+    private static String loggedInUserName = "null";
 
     public static int getLoggedInUserId() {
         return loggedInUserId;
@@ -207,8 +84,32 @@ class User{
             System.out.println("Error: " + e.getMessage());
         }
 
-        System.out.print("Set Password : ");
-        String pass = sc.nextLine();
+        String pass;
+        while (true) {
+            System.out.print("Set Password : ");
+            pass = sc.nextLine();
+
+            if (pass.length() == 6) {
+                int digit = 0, specialChar = 0;
+                for (char ch : pass.toCharArray()) {
+                    if (Character.isDigit(ch)) digit++;
+                    else if (!Character.isLetterOrDigit(ch)) specialChar++;
+                }
+
+                if (digit == 5 && specialChar == 1) {
+                    try (Connection con = DBConnection.getConnection()) {
+                        PreparedStatement ps = con.prepareStatement("SELECT Id FROM Users WHERE Password = ?");
+                        ps.setString(1, pass);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) System.out.println("This password already exists. Please choose another.");
+                        else break;
+                    } catch (SQLException e) {
+                        System.out.println("Error checking password uniqueness: " + e.getMessage());
+                    }
+                }
+            }
+            System.out.println("Invalid Input, Please enter 6 chars (5 digits + 1 special).");
+        }
 
         String mail;
         while (true) {
@@ -240,9 +141,7 @@ class User{
         boolean verified = false;
         for (int i = 0; i <= 2; i++) {
             System.out.print("Enter OTP sent to your Mobile: ");
-            int Otp = -1;
-            try { Otp = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input."); continue; }
-
+            int Otp = sc.nextInt();
             if (Otp == Pass) {
                 System.out.println("OTP Verified Successfully!");
                 verified = true; break;
@@ -255,11 +154,11 @@ class User{
             return;
         }
 
-        System.out.print("Enter BIO : ");
+        System.out.print("Enter BIO : "); sc.nextLine();
         String bio = sc.nextLine();
 
         try (Connection con = DBConnection.getConnection()) {
-            String Create = "INSERT INTO Users(Username,Password,Email_id,Mobile_no,Bio,is_active) VALUES(?,?,?,?,?,1)";
+            String Create = "Insert into Users(Username,Password,Email_id,Mobile_no,Bio,is_active) VALUES(?,?,?,?,?,1)";
             PreparedStatement create = con.prepareCall(Create);
             create.setString(1, username);
             create.setString(2, pass);
@@ -279,12 +178,13 @@ class User{
         String username = sc.nextLine();
         System.out.print("Enter Password : ");
         String pass = sc.nextLine();
+
         try (Connection conn = DBConnection.getConnection()) {
             String query = "SELECT Id FROM Users WHERE Username = ? AND Password = ? AND is_active = 1";
-            PreparedStatement  log =  conn.prepareStatement(query);
+            PreparedStatement log = conn.prepareStatement(query);
             log.setString(1, username);
             log.setString(2, pass);
-            ResultSet rs = log .executeQuery();
+            ResultSet rs = log.executeQuery();
             if (rs.next()) {
                 loggedInUserId = rs.getInt("Id");
                 loggedInUserName = username;
@@ -311,25 +211,19 @@ class User{
         return true;
     }
 
+    // Polymorphism
+    @Override
     public void sendRequest(int senderId, int receiverId){
-        try (Connection con = DBConnection.getConnection()) {
-            PreparedStatement check = con.prepareStatement("SELECT * FROM FriendRequests WHERE Sender_id = ?" +
-                    " AND Receiver_id = ? AND Status = 'PENDING'");
+        try {
+            Connection con = DBConnection.getConnection();
+            PreparedStatement check = con.prepareStatement("SELECT * FROM FriendRequests WHERE Sender_id = ? " +
+                    " AND Sender_name = ? AND Receiver_id = ? AND Status = 'PENDING'");
             check.setInt(1, senderId);
-            check.setInt(2, receiverId);
+            check.setString(2,User.getLoggedInUserName());
+            check.setInt(3, receiverId);
             ResultSet rs = check.executeQuery();
             if (rs.next()) {
                 System.out.println("Friend request Already Sent.\n");
-                return;
-            }
-
-            PreparedStatement checkReverse = con.prepareStatement("SELECT * FROM FriendRequests WHERE Sender_id = ?" +
-                    " AND Receiver_id = ? AND Status = 'PENDING'");
-            checkReverse.setInt(1, receiverId);
-            checkReverse.setInt(2, senderId);
-            ResultSet rsReverse = checkReverse.executeQuery();
-            if (rsReverse.next()) {
-                System.out.println("They have already sent you a friend request. Check your inbox to accept/decline.\n");
                 return;
             }
 
@@ -348,7 +242,8 @@ class User{
 
     public int check(String username){
         int id = -1;
-        try (Connection con = DBConnection.getConnection()) {
+        try {
+            Connection con = DBConnection.getConnection();
             PreparedStatement ps = con.prepareStatement("SELECT Id FROM Users WHERE Username = ?");
             ps.setString(1, username);
             ResultSet rs = ps.executeQuery();
@@ -362,27 +257,100 @@ class User{
     }
 
     public boolean isValidEmail(String email) {
-        String regex = "^[A-Za-z0-9._%+-]+@(gmail|yahoo|hotmail)\\.(com|in)$";
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(email.toLowerCase());
-        return matcher.matches();
+        email = email.toLowerCase();
+        return email.contains("@") &&
+                (email.endsWith("gmail.com") || email.endsWith("yahoo.com") || email.endsWith("hotmail.com"));
+    }
+
+    @Override
+    public void sendMessage(int senderId) {
+        new Message().sendMessage(senderId);
     }
 }
 
+// ------------------------------- CONTENT CLASS -------------------------------
+// Abstraction + Inheritance - Parent class for Post and Reel
+abstract class Content {
+    protected int userId;
+    protected String username;
+    protected String caption;
+    protected File file;
+
+    public Content(int userId, String username, String caption, File file) {
+        this.userId = userId;
+        this.username = username;
+        this.caption = caption;
+        this.file = file;
+    }
+
+    public abstract void upload();
+}
+
+// Inheritance(Class Share Structure from Other and Remove Duplicates of Code) +
+// Polymorphism(Same method name = different behavior)
+
+class ImagePost extends Content {
+    public ImagePost(int userId, String username, String caption, File file) {
+        super(userId, username, caption, file);
+    }
+
+    @Override
+    public void upload() {
+        try (FileInputStream fr = new FileInputStream(file)) {
+            Connection con = DBConnection.getConnection();
+            PreparedStatement st = con.prepareStatement("Insert INTO Image(User_id,Username,Image,Caption,Size_kb,File_name) VALUES(?,?,?,?,?,?)");
+            st.setInt(1,userId);
+            st.setString(2,username);
+            st.setBinaryStream(3, fr, (int) file.length());
+            st.setString(4, caption);
+            st.setInt(5, (int) file.length() / 1024);
+            st.setString(6, file.getName());
+            st.executeUpdate();
+            System.out.println("Successfully Posted.\n");
+        } catch(Exception e){
+            System.out.println("Error - " + e.getMessage());
+        }
+    }
+}
+
+class ReelContent extends Content {
+    public ReelContent(int userId, String username, String caption, File file) {
+        super(userId, username, caption, file);
+    }
+
+    @Override
+    public void upload() {
+        try (FileInputStream fr = new FileInputStream(file)) {
+            Connection con = DBConnection.getConnection();
+            PreparedStatement st = con.prepareStatement("Insert INTO Vedio(User_id,Username,Vedio,Caption,Size_kb,File_name) VALUES(?,?,?,?,?,?)");
+            st.setInt(1,userId);
+            st.setString(2,username);
+            st.setBinaryStream(3, fr, (int) file.length());
+            st.setString(4, caption);
+            st.setInt(5, (int) file.length() / 1024);
+            st.setString(6, file.getName());
+            st.executeUpdate();
+            System.out.println("Reel Successfully Posted.\n");
+        } catch(Exception e){
+            System.out.println("Error - " + e.getMessage());
+        }
+    }
+}
+
+// ------------------------------- ACCOUNT ----------------------------
 class Account{
     static Scanner sc = new Scanner(System.in);
     public void delete(){
         if (!User.isLoggedIn()) return;
-        System.out.print("Are you sure you want to delete your account permanently? (yes/no): ");
+        System.out.print("Are you sure you want to delete your account permanently? (yes/no)");
         String confirm = sc.nextLine();
         if (!confirm.equalsIgnoreCase("Yes")) {
             System.out.println("Deletion Cancelled.\n"); return;
         }
-
-        try (Connection con = DBConnection.getConnection()) {
-            PreparedStatement delete = con.prepareStatement("DELETE FROM Users WHERE Username = ?");
-            delete.setString(1,User.getLoggedInUserName());
-            delete.executeUpdate();
+        try { Connection con = DBConnection.getConnection();
+            CallableStatement cs = con.prepareCall("{CALL DeleteUserProc(?)}");
+            cs.setString(1, User.getLoggedInUserName());
+            cs.execute();
             System.out.println("Account Deleted.\n");
             User.logout();
         }
@@ -393,7 +361,7 @@ class Account{
 
     public void deactivate(){
         if (!User.isLoggedIn()) return;
-        System.out.print("Are you sure you want to deactivate your account permanently? (yes/no): ");
+        System.out.print("Are you sure you want to deactivate your account permanently? (yes/no)");
         String confirm = sc.nextLine();
         if (!confirm.equalsIgnoreCase("Yes")) {
             System.out.println("Deactivation Cancelled.\n"); return;
@@ -401,12 +369,20 @@ class Account{
         try (Connection conn = DBConnection.getConnection()) {
             PreparedStatement deactivate = conn.prepareStatement("UPDATE Users SET is_active = 0 WHERE Username = ?");
             deactivate.setString(1, User.getLoggedInUserName());
+
+            System.out.print("Are you sure you want to deactivate your account permanently? (yes/no)");
+            String conf = sc.nextLine();
+            if (!conf.equalsIgnoreCase("Yes")) {
+                System.out.println("Deactivation Cancelled.\n"); return;
+            }
+
             deactivate.executeUpdate();
             System.out.println("Account Deactivated.\n");
             User.logout();
         } catch (SQLException e) {
             System.out.println("Error: " + e.getMessage());
         }
+
     }
 
     public void forgotPassword(){
@@ -414,11 +390,11 @@ class Account{
         String username = sc.nextLine();
         String phone;
         int Pass = 0;
-
         while (true) {
             System.out.print("Enter Mobile number: ");
             phone = sc.nextLine();
             if (phone.length() == 10 && phone.matches("\\d+")) {
+                // \\d+ is a Regular Func which only allow digits in String and + for one or more
                 Random R = new Random();
                 Pass = 100000 + R.nextInt(900000);
                 System.out.println("\nDear Customer,\n"+ " ----- " + Pass + " ----- " + " is your One Time Password(OTP)."+
@@ -432,20 +408,46 @@ class Account{
         boolean verified = false;
         for (int i = 0; i <= 2; i++) {
             System.out.print("Enter OTP sent to your Mobile: ");
-            int Otp = -1;
-            try { Otp = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input."); continue; }
-
+            int Otp = sc.nextInt();
             if (Otp == Pass) {
                 System.out.println("OTP Verified Successfully!");
-                try(Connection con = DBConnection.getConnection()){
-                    PreparedStatement check = con.prepareStatement("SELECT Username FROM Users WHERE Username = ?");
+
+                try{ Connection con = DBConnection.getConnection();
+                    PreparedStatement check = con.prepareStatement("Select Username from Users where Username = ?");
                     check.setString(1,username);
                     ResultSet r = check.executeQuery();
                     if(r.next()) {
                         String user = r.getString("Username");
-                        System.out.print("Set New Password : ");
-                        String pass = sc.nextLine();
-                        PreparedStatement up = con.prepareStatement("UPDATE Users SET Password = ? WHERE Username = ?");
+                        sc.nextLine();
+
+                        String pass;
+                        while (true) {
+                            System.out.print("Set Password : ");
+                            pass = sc.nextLine();
+
+                            if (pass.length() == 6) {
+                                int digit = 0, specialChar = 0;
+                                for (char ch : pass.toCharArray()) {
+                                    if (Character.isDigit(ch)) digit++;
+                                    else if (!Character.isLetterOrDigit(ch)) specialChar++;
+                                }
+
+                                if (digit == 5 && specialChar == 1) {
+                                    try {
+                                        PreparedStatement ps = con.prepareStatement("SELECT Id FROM Users WHERE Password = ?");
+                                        ps.setString(1, pass);
+                                        ResultSet rs = ps.executeQuery();
+                                        if (rs.next()) System.out.println("This password already exists. Please choose another.");
+                                        else break;
+                                    } catch (SQLException e) {
+                                        System.out.println("Error checking password uniqueness: " + e.getMessage());
+                                    }
+                                }
+                            }
+                            System.out.println("Invalid Input, Please enter 6 chars (5 digits + 1 special).");
+                        }
+
+                        PreparedStatement up = con.prepareStatement("Update Users set Password = ? where Username = ?");
                         up.setString(1, pass);
                         up.setString(2, user);
                         up.executeUpdate();
@@ -464,31 +466,35 @@ class Account{
         }
         if (!verified) {
             System.out.println("Maximum Attempts Reached, Account Creation Failed.\n");
+            return;
         }
     }
 }
 
+
+// ------------------------------- REELS ------------------------------
 class Reels_Management{
     static Scanner sc = new Scanner(System.in);
+
     public void post(){
-        if (!User.isLoggedIn()) return;
-        System.out.print("Enter File Path (e.g., 'C:/myimage.jpg'): ");
+        System.out.print("Enter File Path : ");
         String path = sc.nextLine();
         File f = new File(path);
         System.out.print("Enter Image Caption: ");
         String caption = sc.nextLine();
 
-        try{
+        try{FileInputStream fr = new FileInputStream(path);
             Connection con = DBConnection.getConnection();
-            PreparedStatement st = con.prepareStatement("INSERT INTO Image(User_id,Username,Caption,Size_kb,File_name) VALUES(?,?,?,?,?)");
+
+            PreparedStatement st = con.prepareStatement("Insert INTO Image(User_id,Username,Image,Caption,Size_kb,File_name) VALUES(?,?,?,?,?,?)");
             st.setInt(1,User.getLoggedInUserId());
             st.setString(2,User.getLoggedInUserName());
-            st.setString(3, caption);
-            st.setInt(4, (int) f.length() / 1024);
-            st.setString(5, f.getName());
-
+            st.setBinaryStream(3, fr, (int) f.length());
+            st.setString(4, caption);
+            st.setInt(5, (int) f.length() / 1024);
+            st.setString(6, f.getName());
             int r = st.executeUpdate();
-            System.out.println((r>0)? "Successfully Posted.\n":"Failed Uploading.\n");
+            System.out.println((r>0)? "Successfully Posted\n.":"Failed Uploading\n");
         }
         catch(Exception e){
             System.out.println("Error - " + e.getMessage());
@@ -496,24 +502,23 @@ class Reels_Management{
     }
 
     public void upload(){
-        if (!User.isLoggedIn()) return;
-        System.out.print("Enter File Path (e.g., 'C:/myvideo.mp4'): ");
+        System.out.print("Enter File Path : ");
         String path = sc.nextLine();
         File f = new File(path);
         System.out.print("Enter Reel Caption: ");
         String caption = sc.nextLine();
 
-        try{
+        try{ FileInputStream fr = new FileInputStream(path);
             Connection con = DBConnection.getConnection();
-            PreparedStatement st = con.prepareStatement("INSERT INTO Vedio(User_id,Username,Caption,Size_kb,File_name) VALUES(?,?,?,?,?)");
+            PreparedStatement st = con.prepareStatement("Insert INTO Vedio(User_id,Username,Vedio,Caption,Size_kb,File_name) VALUES(?,?,?,?,?,?)");
             st.setInt(1,User.getLoggedInUserId());
             st.setString(2,User.getLoggedInUserName());
-            st.setString(3, caption);
-            st.setInt(4, (int) f.length() / 1024);
-            st.setString(5, f.getName());
-
+            st.setBinaryStream(3, fr, (int) f.length());
+            st.setString(4, caption);
+            st.setInt(5, (int) f.length() / 1024);
+            st.setString(6, f.getName());
             int r = st.executeUpdate();
-            System.out.println((r>0)? "Reel Successfully Posted.\n":"Failed Uploading.\n");
+            System.out.println((r>0)? "Reel Successfully Posted\n.":"Failed Uploading\n");
         }
         catch(Exception e){
             System.out.println("Error - " + e.getMessage());
@@ -521,31 +526,30 @@ class Reels_Management{
     }
 
     public void scrollReels(int userId) {
-        if (!User.isLoggedIn()) return;
         while (true) {
-            try (Connection con = DBConnection.getConnection()) {
-                String query = "SELECT * FROM Reels ORDER BY RANDOM() LIMIT 1";
+            try {
+                Connection con = DBConnection.getConnection();
+                String query = "SELECT * FROM Reels ORDER BY RAND() LIMIT 1";
                 PreparedStatement ps = con.prepareStatement(query);
                 ResultSet rs = ps.executeQuery();
+
                 if (rs.next()) {
                     int reelId = rs.getInt("Id");
                     String caption = rs.getString("Caption");
 
                     System.out.println("========================");
-                    System.out.println("Reel ID : " + reelId);
+                    System.out.println("Reel Id : " + reelId);
                     System.out.println("Reel Caption : " + caption);
-                    System.out.println("File Path (Local Ref): " + rs.getString("File_path"));
                     System.out.println("========================");
+
                     System.out.println("--- Choose an Option ---");
                     System.out.println("1. Like");
                     System.out.println("2. Save");
                     System.out.println("3. Scroll");
                     System.out.println("4. Exit");
                     System.out.print("Enter Choice : ");
-
-                    int z = -1;
-                    try { z = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input. Try again."); continue; }
-
+                    int z = sc.nextInt();
+                    sc.nextLine();
 
                     if (z == 1) {
                         try{
@@ -561,8 +565,7 @@ class Reels_Management{
                     }
                     else if (z == 2) {
                         try{
-                            PreparedStatement insert =
-                                    con.prepareStatement("INSERT INTO Saves(Username,User_id,Reel_id) VALUES(?,?,?)");
+                            PreparedStatement insert = con.prepareStatement("INSERT INTO Saves(Username,User_id,Reel_id) VALUES(?,?,?)");
                             insert.setString(1,User.getLoggedInUserName());
                             insert.setInt(2,userId);
                             insert.setInt(3,reelId);
@@ -588,259 +591,129 @@ class Reels_Management{
 
             } catch (SQLException e) {
                 System.out.println("Error: " + e.getMessage());
-                break;
             }
         }
     }
 
     public void viewLikedReels(int userId) {
-        if (!User.isLoggedIn()) return;
         try (Connection con = DBConnection.getConnection()) {
             PreparedStatement st = con.prepareStatement(
                     "SELECT R.ID, R.Caption FROM Reels R JOIN Likes L ON R.ID = L.Reel_id WHERE L.User_id = ?");
             st.setInt(1, userId);
             ResultSet rs = st.executeQuery();
             System.out.println("\n--- Liked Reels ---");
-            boolean found = false;
             while (rs.next()) {
-                found = true;
                 System.out.println("Reel ID: " + rs.getInt("ID") + " | Caption: " + rs.getString("Caption"));
             }
-            if(!found) System.out.println("You have no liked reels.");
         } catch (SQLException e) {
             System.out.println("Error: " + e.getMessage());
         }
     }
 
     public void viewSavedReels(int userId) {
-        if (!User.isLoggedIn()) return;
         try (Connection con = DBConnection.getConnection()) {
             PreparedStatement st = con.prepareStatement(
                     "SELECT R.ID, R.Caption FROM Reels R JOIN Saves S ON R.ID = S.Reel_id WHERE S.User_id = ?");
             st.setInt(1, userId);
             ResultSet rs = st.executeQuery();
             System.out.println("\n--- Saved Reels ---");
-            boolean found = false;
             while (rs.next()) {
-                found = true;
                 System.out.println("Reel ID: " + rs.getInt("ID") + " | Caption: " + rs.getString("Caption"));
             }
-            if(!found) System.out.println("You have no saved reels.");
         } catch (SQLException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+
+    public void digitalWellbeingReport(int userId) {
+        try (Connection con = DBConnection.getConnection()) {
+            PreparedStatement ps1 = con.prepareStatement(
+                    "SELECT IFNULL(SUM(Duration_minutes),0) FROM Wellbeing WHERE User_id=? AND Session_date=CURDATE()");
+            ps1.setInt(1, userId);
+            ResultSet rs1 = ps1.executeQuery();
+            int today = 0;
+            if (rs1.next()) today = rs1.getInt(1);
+
+            PreparedStatement ps2 = con.prepareStatement(
+                    "SELECT IFNULL(SUM(Duration_minutes),0) FROM Wellbeing WHERE User_id=? AND Session_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
+            ps2.setInt(1, userId);
+            ResultSet rs2 = ps2.executeQuery();
+            int week = 0;
+            if (rs2.next()) week = rs2.getInt(1);
+
+            System.out.println("---------- Digital Wellbeing Report ---------\n");
+            System.out.println("Today: " + today + " min");
+            System.out.println("This Week: " + week + " min");
+
+        } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
         }
     }
 }
 
-class Games {
-    Scanner sc = new Scanner(System.in);
+class MyQueue<T> {
+    private static class Node<T> {
+        T data;
+        Node<T> next;
+        Node(T data) { this.data = data; this.next = null; }
+    }
 
-    private void updateStats(int userId, String username, boolean won) throws SQLException {
-        String gameName = "Number Guess";
-        String insertGame = "INSERT INTO Games (user_id, username, game_name, played_at, won) VALUES (?, ?, ?, datetime('now', 'localtime'), ?)";
-        String upsertStats;
-
-        try (Connection con = DBConnection.getConnection()) {
-            PreparedStatement ps = con.prepareStatement(insertGame);
-            ps.setInt(1, userId);
-            ps.setString(2, username);
-            ps.setString(3, gameName);
-            ps.setInt(4, won ? 1 : 0);
-            ps.executeUpdate();
-
-            if (won) {
-                PreparedStatement check = con.prepareStatement("SELECT * FROM Stats WHERE user_id = ?");
-                check.setInt(1, userId);
-                ResultSet rs = check.executeQuery();
-
-                if (rs.next()) {
-                    upsertStats = "UPDATE Stats SET streak = streak + 1, points = points + 10, last_played_date = date('now', 'localtime') WHERE user_id = ?";
-                    PreparedStatement update = con.prepareStatement(upsertStats);
-                    update.setInt(1, userId);
-                    update.executeUpdate();
-                } else {
-                    upsertStats = "INSERT INTO Stats (user_id, username, streak, points, last_played_date) VALUES (?, ?, 1, 10, date('now', 'localtime'))";
-                    PreparedStatement insert = con.prepareStatement(upsertStats);
-                    insert.setInt(1, userId);
-                    insert.setString(2, username);
-                    insert.executeUpdate();
-                }
-            } else {
-                PreparedStatement check = con.prepareStatement("SELECT * FROM Stats WHERE user_id = ?");
-                check.setInt(1, userId);
-                ResultSet rs = check.executeQuery();
-
-                if (rs.next()) {
-                    upsertStats = "UPDATE Stats SET streak = 0, last_played_date = date('now', 'localtime') WHERE user_id = ?";
-                    PreparedStatement update = con.prepareStatement(upsertStats);
-                    update.setInt(1, userId);
-                    update.executeUpdate();
-                } else {
-                    upsertStats = "INSERT INTO Stats (user_id, username, streak, points, last_played_date) VALUES (?, ?, 0, 0, date('now', 'localtime'))";
-                    PreparedStatement insert = con.prepareStatement(upsertStats);
-                    insert.setInt(1, userId);
-                    insert.setString(2, username);
-                    insert.executeUpdate();
-                }
-            }
+    private Node<T> front, rear;
+    public MyQueue() { front = rear = null;}
+    public void enqueue(T data) {
+        Node<T> newNode = new Node<>(data);
+        if (rear == null) front = rear = newNode;
+        else {
+            rear.next = newNode;
+            rear = newNode;
         }
     }
 
-    public void play(int userId, String username) {
-        if (!User.isLoggedIn()) return;
-        System.out.println("\n--- Welcome to the Quick Guessing Game! ---");
-        System.out.println("Try to guess the number (1-100) before the 30 seconds timer runs out.");
+    public T dequeue() {
+        if (front == null) return null;
+        T data = front.data;
+        front = front.next;
+        if (front == null) rear = null;
+        return data;
+    }
+    public boolean isEmpty() { return front == null; }
+}
 
-        Random rand = new Random();
-        int targetNumber = rand.nextInt(100) + 1;
-        int guesses = 0;
-        final long DURATION_SECONDS = 30;
-        final long DURATION_MILLIS = DURATION_SECONDS * 1000;
-
-        long startTime = System.currentTimeMillis();
-        long endTime = startTime + DURATION_MILLIS;
-        boolean won = false;
-
-        while (System.currentTimeMillis() < endTime) {
-            long remainingTime = (endTime - System.currentTimeMillis()) / 1000;
-            if (remainingTime <= 0) break;
-
-            System.out.println("\n[TIME LEFT: " + remainingTime + " seconds]");
-            System.out.print("Enter your guess: ");
-
-            int guess = -1;
-            try {
-                String input = sc.nextLine();
-                guess = Integer.parseInt(input.trim());
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid guess. Please enter a valid number.");
-                continue;
-            }
-
-            guesses++;
-
-            if (guess == targetNumber) {
-                System.out.println("\n🎉 CONGRATULATIONS! You guessed the number " + targetNumber +
-                        " in " + guesses + " guesses!");
-                long timeTaken = DURATION_SECONDS - remainingTime;
-                System.out.println("Total Time Taken: " + timeTaken + " seconds.");
-                won = true;
-                break;
-            } else if (guess < targetNumber) {
-                System.out.println("Too Low. Try a higher number.");
-            } else {
-                System.out.println("Too High. Try a lower number.");
-            }
-
-            try { TimeUnit.MILLISECONDS.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+class MyLinkedList<T> {
+    private static class Node<T> {
+        T data; Node<T> next;
+        Node(T data) {
+            this.data = data;
         }
+    }
+    private Node head;
+    private int size = 0;
 
-        if (!won) {
-            System.out.println("\n⌛ TIME'S UP! Game Over.");
-            System.out.println("The number was: " + targetNumber);
+    public void addFirst(T data) {
+        Node<T> node = new Node<>(data);
+        node.next = head;
+        head = node;
+    }
+    public void printAll() {
+        if (head == null) {
+            System.out.println("Inbox is Empty."); return;
         }
-
-        try {
-            updateStats(userId, username, won);
-        } catch (SQLException e) {
-            System.out.println("Error saving game session or updating stats: " + e.getMessage());
+        Node<T> temp = head;
+        while (temp != null) {
+            System.out.println("→ " + temp.data);
+            temp = temp.next;
         }
     }
 
-    public void showLeaderboard() {
-        if (!User.isLoggedIn()) return;
-        try (Connection con = DBConnection.getConnection()) {
-            String query = "SELECT username, points, streak, last_played_date FROM Stats ORDER BY points DESC, streak DESC LIMIT 10";
-            PreparedStatement ps = con.prepareStatement(query);
-            ResultSet rs = ps.executeQuery();
-
-            System.out.println("\n--- Top 10 Game Leaderboard ---");
-            System.out.printf("%-5s %-15s %-8s %-8s %s\n", "Rank", "Username", "Points", "Streak", "Last Played");
-            System.out.println("-----------------------------------------------------");
-
-            int rank = 1;
-            boolean found = false;
-            while (rs.next()) {
-                found = true;
-                System.out.printf("%-5d %-15s %-8d %-8d %s\n",
-                        rank++,
-                        rs.getString("username"),
-                        rs.getInt("points"),
-                        rs.getInt("streak"),
-                        rs.getString("last_played_date"));
-            }
-            if (!found) {
-                System.out.println("Leaderboard is empty. Play a game to join!");
-            }
-        } catch (SQLException e) {
-            System.out.println("Error fetching leaderboard: " + e.getMessage());
-        }
+    public boolean isEmpty() {
+        return size == 0;
     }
 }
 
-class Game_Stats extends Games {}
-
-class Wellbeing {
-    Scanner sc = new Scanner(System.in);
-
-    public void trackSession(int userId) {
-        if (!User.isLoggedIn()) return;
-        System.out.print("Enter session duration in minutes: ");
-        int duration = -1;
-        try { duration = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input. Session not tracked."); return; }
-
-        if (duration <= 0) {
-            System.out.println("Duration must be positive.");
-            return;
-        }
-
-        try (Connection con = DBConnection.getConnection()) {
-            String query = "INSERT INTO Wellbeing (User_id, Session_date, Duration_minutes) VALUES (?, date('now', 'localtime'), ?)";
-            PreparedStatement ps = con.prepareStatement(query);
-            ps.setInt(1, userId);
-            ps.setInt(2, duration);
-            ps.executeUpdate();
-            System.out.println("Wellbeing session tracked successfully! (" + duration + " minutes)");
-        } catch (SQLException e) {
-            System.out.println("Error tracking session: " + e.getMessage());
-        }
-    }
-
-    public void viewSummary(int userId) {
-        if (!User.isLoggedIn()) return;
-        try (Connection con = DBConnection.getConnection()) {
-            String query = "SELECT Session_date, Duration_minutes FROM Wellbeing WHERE User_id = ? ORDER BY Session_date DESC LIMIT 7";
-            PreparedStatement ps = con.prepareStatement(query);
-            ps.setInt(1, userId);
-            ResultSet rs = ps.executeQuery();
-
-            System.out.println("\n--- Last 7 Wellbeing Sessions ---");
-            boolean found = false;
-            int totalDuration = 0;
-
-            while (rs.next()) {
-                found = true;
-                int duration = rs.getInt("Duration_minutes");
-                totalDuration += duration;
-                System.out.println("Date: " + rs.getString("Session_date") + " | Duration: " + duration + " minutes");
-            }
-
-            if (found) {
-                System.out.println("---------------------------------");
-                System.out.println("Total duration in last 7 entries: " + totalDuration + " minutes");
-            } else {
-                System.out.println("No wellbeing sessions tracked yet.");
-            }
-        } catch (SQLException e) {
-            System.out.println("Error viewing summary: " + e.getMessage());
-        }
-    }
-}
-
+// ------------------------------- MESSAGE ---------------------------
 class Message{
     static Scanner sc = new Scanner(System.in);
     public void sendMessage(int senderId) {
-        if (!User.isLoggedIn()) return;
         try (Connection conn = DBConnection.getConnection()) {
 
             System.out.print("Enter the Username: ");
@@ -873,13 +746,13 @@ class Message{
     }
 
     public void inbox() {
-        if (!User.isLoggedIn()) return;
         try (Connection conn = DBConnection.getConnection()) {
             int userId = User.getLoggedInUserId();
+
             String requestQuery = "SELECT fr.Id, u.Username, u.Email_id, u.Bio " +
                     "FROM FriendRequests fr " +
                     "JOIN Users u ON fr.Sender_id = u.Id " +
-                    "WHERE fr.Receiver_id = ? AND fr.Status = 'PENDING'";
+                    "WHERE fr.Receiver_id = ? AND fr.Status = 'Pending'";
             PreparedStatement requestStmt = conn.prepareStatement(requestQuery);
             requestStmt.setInt(1, userId);
             ResultSet reqRs = requestStmt.executeQuery();
@@ -902,11 +775,9 @@ class Message{
                 System.out.println("2. Decline");
                 System.out.print("Enter your choice: ");
 
-                int choice = -1;
-                try { choice = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input. Skipping request."); continue; }
-
+                int choice = new Scanner(System.in).nextInt();
                 if (choice == 1) {
-                    String updateRequest = "UPDATE FriendRequests SET Status = 'ACCEPTED' WHERE Id = ?";
+                    String updateRequest = "UPDATE FriendRequests SET Status = 'Accepted' WHERE Id = ?";
                     PreparedStatement updateStmt = conn.prepareStatement(updateRequest);
                     updateStmt.setInt(1, requestId);
                     updateStmt.executeUpdate();
@@ -920,7 +791,7 @@ class Message{
 
                     System.out.println("Friend request accepted.\n");
                 } else if (choice == 2) {
-                    String decline = "UPDATE FriendRequests SET Status = 'REJECTED' WHERE Id = ?";
+                    String decline = "UPDATE FriendRequests SET Status = 'Rejected' WHERE Id = ?";
                     PreparedStatement declineStmt = conn.prepareStatement(decline);
                     declineStmt.setInt(1, requestId);
                     declineStmt.executeUpdate();
@@ -939,7 +810,6 @@ class Message{
             ResultSet msgRs = msgStmt.executeQuery();
 
             boolean hasMessages = false;
-            System.out.println("\n--- Messages ---");
             while (msgRs.next()) {
                 hasMessages = true;
                 System.out.println("@" + msgRs.getString("Sender_name") + " : " + msgRs.getString("Content"));
@@ -955,16 +825,23 @@ class Message{
     }
 }
 
+// ------------------------------- SEARCH -----------------------------
 class Search {
     public void display(String name) {
-        try (Connection con = DBConnection.getConnection()) {
-            PreparedStatement call = con.prepareStatement("SELECT Id,Username,Email_id,Bio FROM Users WHERE Username = ?");
+        Scanner sc = new Scanner(System.in);
+
+        try {
+            Connection con = DBConnection.getConnection();
+            PreparedStatement call = con.prepareStatement("Select Id,Username,Email_id,Bio from Users where Username = ?");
             call.setString(1, name);
             ResultSet rs = call.executeQuery();
+
             if (rs.next()) {
                 int searchedUserId = rs.getInt("Id");
-                UserProfile profile = new UserProfile(rs.getString("Username"), rs.getString("Email_id"), rs.getString("Bio"));
-                profile.displayProfile();
+
+                System.out.println("Username: " + rs.getString("Username"));
+                System.out.println("Email: " + rs.getString("Email_id"));
+                System.out.println("Bio: " + rs.getString("Bio"));
 
                 PreparedStatement post = con.prepareStatement("SELECT Caption FROM Image WHERE User_id = ?");
                 post.setInt(1, searchedUserId);
@@ -993,166 +870,668 @@ class Search {
     }
 }
 
-class MyQueue<T> {
-    private static class Node<T> {
-        T data;
-        Node<T> next;
-        Node(T data) { this.data = data; this.next = null;
-        }
+//======================================== INSTALITE GAMES ==============================================
+
+interface Game {
+    String getName();
+    boolean play();
+}
+abstract class Time implements Game {
+    protected final Scanner sc = new Scanner(System.in);
+    protected final Random rand = new Random();
+
+    protected boolean startCountdown(int seconds, boolean[] timeUp) {
+        Timer timer = new Timer(true); // daemon thread
+        timer.scheduleAtFixedRate(new TimerTask() {
+            int sec = seconds;
+            public void run() {
+                if (sec >= 0) {
+                    System.out.print("\rTime Left: " + sec + "s   ");
+                    sec--;
+                } else {
+                    timeUp[0] = true;
+                    System.out.println("\n⏳ Time Over! Game Over.");
+                    timer.cancel();
+                }
+            }
+        }, 0, 1000);
+        return true;
     }
 
-    private Node<T> front, rear;
-    public MyQueue() { front = rear = null;}
-    public void enqueue(T data) {
-        Node<T> newNode = new Node<>(data);
-        if (rear == null) front = rear = newNode;
-        else {
-            rear.next = newNode;
-            rear = newNode;
-        }
+    protected boolean within(long start, long limit) {
+        long leftt = (System.currentTimeMillis() - start) / 1000L;
+        return leftt < limit;
     }
-    public T dequeue() {
-        if (front == null) return null;
-        T data = front.data;
-        front = front.next;
-        if (front == null) rear = null;
-        return data;
+
+    protected long leftTime(long start, long limit) {
+        long left = (System.currentTimeMillis() - start) / 1000L;
+        long leftt = limit - left;
+        return Math.max(0, left);
     }
-    public boolean isEmpty() { return front == null;
+
+    protected void displayTime(long start, long limit) {
+        long left = leftTime(start, limit);
+        System.out.print(String.format("  [⏳ %02d:%02d]", left / 90, left % 90));
+    }
+
+    protected void pause(long ms) {
+        try { Thread.sleep(ms); }  catch (InterruptedException ignored) {}
+    }
+
+    protected String shuffle(String w) {
+        List<Character> chars = new ArrayList<>();
+        for (char c : w.toCharArray())
+            chars.add(c);
+        Collections.shuffle(chars, rand);
+        StringBuilder sb = new StringBuilder();
+        for (char c : chars)
+            sb.append(c);
+        return sb.toString();
     }
 }
 
-class MyLinkedList<T> {
-    private static class Node<T> {
-        T data;
-        Node<T> next;
-        Node(T data) {
-            this.data = data;
+// ------------------------------- GAME #1: Word Scramble -------------------------------
+class Wordscramble extends Time {
+    static String[] Words = {
+            "banana","planet","silver","puzzle","object","stream","camera","galaxy",
+            "random","little","orange","bridge","forest","animal","memory"
+    };
+    public String getName() {
+        return "Word Scramble";
+    }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        String target = Words[rand.nextInt(Words.length)];
+        String scramble;
+        do{
+            scramble = shuffle(target);
+        }while(scramble.equals(target));
+
+        System.out.println("\nUnscramble the word:");
+        System.out.println(">> " + scramble);
+        System.out.print("Your Answer: ");
+        displayTime(start, 90); System.out.println();
+        String ans = sc.nextLine().trim();
+
+        boolean win = ans.equalsIgnoreCase(target) && within(start, 90);
+        System.out.println(win ? "Correct!" : "Wrong. Answer was: " + target);
+        return win;
+    }
+}
+
+// ------------------------------- GAME #2: Maths Blitz -------------------------------
+class MathsBlitz extends Time {
+    public String getName() {
+        return "Maths Blitz";
+    }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        int correct = 0, total = 10;
+        char[] ops = {'+','-','*','/'};
+
+        System.out.println("\nSolve 10 problems in 90 seconds. Need at least 8 correct.");
+        for(int i = 1; i <= total; i++) {
+            if(!within(start, 90)) {
+                System.out.println("Time Over!");
+                break;
+            }
+            int a = rand.nextInt(41) + 9;  //Numbers from 9..50
+            int b = rand.nextInt(41) + 9;
+            char op = ops[rand.nextInt(ops.length)];
+            if (op == '/') {
+                int ans = Math.max(1, rand.nextInt(12)); // 1..11
+                a = ans * Math.max(1, rand.nextInt(12));
+                b = a / ans;
+            }
+
+            int ans = switch (op) {
+                case '+' -> a + b;
+                case '-' -> a - b;
+                case '*' -> a * b;
+                case '/' -> b != 0 ? a / b : a; // safe
+                default -> 0;
+            };
+
+            System.out.print("Q" + i + ": " + a + " " + op + " " + b + " = ");
+            displayTime(start, 90); System.out.print("\n= ");
+            int user;
+            try {
+                user = Integer.parseInt(sc.nextLine().trim());
+            } catch (Exception e) {
+                user = Integer.MIN_VALUE;
+            }
+            if (user == ans) correct++;
         }
+        System.out.println("Correct: " + correct + "/10");
+        return correct >= 8 && within(start, 90);
     }
-    private Node head;
-    private int size = 0;
-    public void addFirst(T data) {
-        Node<T> node = new Node<>(data);
-        node.next = head;
-        head = node;
-        size++;
+}
+
+// ------------------------------- GAME #3: Memory Flip (6 numbers) -------------------------------
+class MemoryFlip extends Time {
+    public String getName() {
+        return "Memory Flip";
     }
-    public void printAll() {
-        if (head == null) {
-            System.out.println("Inbox is Empty.");
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        List<Integer> seq = new ArrayList<>();
+        while (seq.size() < 6) {
+            int v = rand.nextInt(90) + 10; // two-digit for recall
+            if (!seq.contains(v)) seq.add(v);
+        }
+        System.out.println("\nMemorize the sequence (5 seconds):");
+        System.out.println(seq);
+        pause(5000);
+        System.out.print("\rNow Enter the 6 Numbers Separated by Space");
+        displayTime(start, 90); System.out.println();
+        System.out.print("> ");
+
+        String[] parts = sc.nextLine().trim().split("\\s+");
+        if (parts.length != 6) {
+            System.out.println("Need exactly 6 numbers."); return false;
+        }
+        boolean ok = true;
+        for (int i = 0; i < 6; i++) {
+            try {
+                if (Integer.parseInt(parts[i]) != seq.get(i)) { ok = false; break; }
+            } catch (Exception e) {
+                ok = false; break;
+            }
+        }
+        System.out.println(ok && within(start, 90) ? "Perfect memory!" : "Not matching.");
+        return ok && within(start, 90);
+    }
+}
+
+// ------------------------------- GAME #4: Odd One Out -------------------------------
+class OddOneOut extends Time {
+    private static final String[][] SETS = {
+            {"Dog","Cat","Cow","Apple"},
+            {"Rose","Lily","Mango","Tulip"},
+            {"Car","Bus","Train","Banana"},
+            {"Red","Blue","Green","Table"},
+            {"Paris","London","Tokyo","Shirt"}
+    };
+    public String getName() {
+        return "Odd One Out";
+    }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        int needed = 2, asked = 3, score = 0;
+
+        System.out.println("\nPick the odd item. Need 2/3 to win.");
+        List<Integer> bag = new ArrayList<>();
+        for (int i=0;i<SETS.length;i++) bag.add(i);
+        Collections.shuffle(bag, rand);
+
+        for (int q = 0; q < asked; q++) {
+            if (!within(start, 90)) {
+                System.out.println("⏳ Time Over!"); break;
+            }
+            String[] arr = SETS[bag.get(q)];
+            List<String> opts = new ArrayList<>(Arrays.asList(arr));
+            int oddIndex = -1;
+            oddIndex = arr.length - 1;
+            Collections.shuffle(opts, rand);
+            int correctIdx = opts.indexOf(arr[oddIndex]);
+
+            System.out.println("\nQ" + (q+1) + ": Choose the odd one:");
+            for (int i=0;i<opts.size();i++)
+                System.out.println((i+1)+") "+opts.get(i));
+            System.out.print("Your pick: ");
+            displayTime(start, 90); System.out.println();
+
+            int pick;
+            try {
+                pick = Integer.parseInt(sc.nextLine().trim()) - 1;
+            }catch (Exception e) {
+                pick = -1;
+            }
+            if (pick == correctIdx) { System.out.println("Correct!"); score++; }
+            else System.out.println("Wrong. Odd: " + arr[oddIndex]);
+        }
+        boolean win = score >= needed && within(start, 90);
+        System.out.println("Score: " + score + "/" + asked);
+        return win;
+    }
+}
+
+// ------------------------------- GAME #5: Pattern Memory (3x3) -------------------------------
+class PatternMemory extends Time {
+    public String getName() { return "Pattern Memory"; }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        char[][] grid = new char[3][3];
+        for (int r=0;r<3;r++)
+            for (int c=0;c<3;c++) grid[r][c] = rand.nextBoolean() ? 'X' : 'O';
+
+        System.out.println("\nMemorize 3x3 pattern (5 seconds):");
+        for (int r=0;r<3;r++) {
+            for (int c=0;c<3;c++) System.out.print(grid[r][c]+" ");
+            System.out.println();
+        }
+        pause(5000);
+
+        System.out.println("\nEnter the pattern row by row using X/O (e.g., X O X):");
+        char[][] user = new char[3][3];
+        for (int r=0;r<3;r++) {
+            if (!within(start, 90)) {
+                System.out.println("⏳ Time Over!"); return false;
+            }
+            System.out.print("Row "+(r+1)+": "); displayTime(start, 90); System.out.println();
+            String[] parts = sc.nextLine().trim().split("\\s+");
+            if (parts.length != 3) return false;
+            for (int c=0;c<3;c++) {
+                String p = parts[c].toUpperCase();
+                if (!(p.equals("X") || p.equals("O"))) return false;
+                user[r][c] = p.charAt(0);
+            }
+        }
+        boolean same = Arrays.deepEquals(new Object[]{
+                        grid[0],grid[1],grid[2]},
+                new Object[]{user[0],user[1],user[2]});
+        System.out.println(same && within(start, 90) ? "Matched!" : "Not matching.");
+        return same && within(start, 90);
+    }
+}
+
+// ------------------------------- GAME #6: Word Chain -------------------------------
+class WordChain extends Time {
+    private static final String[] START = {"apple","river","music","light","stone","dance","green","night"};
+    public String getName() {
+        return "Word Chain";
+    }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        String cur = START[rand.nextInt(START.length)];
+        Set<String> used = new HashSet<>();
+        used.add(cur);
+
+        System.out.println("\nStart word: " + cur);
+        System.out.println("Enter 6 valid next Words (each must start with last letter of previous). No repeats.");
+        int need = 6, ok = 0;
+        while (ok < need && within(start, 90)) {
+            char last = cur.charAt(cur.length()-1);
+            System.out.print("Word starting with '" + last + "': ");
+            displayTime(start, 90); System.out.println();
+
+            String nxt = sc.nextLine().trim().toLowerCase();
+            if (nxt.length() >= 2 && nxt.charAt(0) == last && !used.contains(nxt) && nxt.matches("[a-z]+")) {
+                used.add(nxt);
+                cur = nxt;
+                ok++;
+            } else {
+                System.out.println("Invalid chain word.");
+            }
+        }
+        boolean win = ok >= need && within(start, 90);
+        System.out.println(win ? "Great Chain!" : "Chain incomplete.");
+        return win;
+    }
+}
+
+// ------------------------------- GAME #7: Hangman (word length <= 6) -------------------------------
+class Hangman extends Time {
+    private static final String[] Words = {
+            "apple","table","river","green","stone","chair","mouse","light","train","bridge"
+    };
+    public String getName() {
+        return "Hangman";
+    }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        String word = Words[rand.nextInt(Words.length)];
+        Set<Character> guessed = new HashSet<>();
+
+        int lives = 6;
+        System.out.println("\nGuess the word (" + word.length() + " letters). You have 6 lives.");
+        while (lives > 0 && within(start, 90)) {
+            StringBuilder mask = new StringBuilder();
+            boolean allOpen = true;
+            for (char c : word.toCharArray()) {
+                if (guessed.contains(c)) mask.append(c).append(' ');
+                else { mask.append("_ "); allOpen = false;
+                }
+            }
+            System.out.println(mask.toString().trim());
+            if (allOpen) { System.out.println("You solved it!");
+                return true;
+            }
+
+            System.out.print("Guess a letter: ");
+            displayTime(start, 90); System.out.println();
+
+            String in = sc.nextLine().trim().toLowerCase();
+            if (in.length() != 1 || !Character.isLetter(in.charAt(0))) {
+                System.out.println("Enter 1 letter."); continue;
+            }
+            char g = in.charAt(0);
+            if (guessed.contains(g)) {
+                System.out.println("Already Tried.");
+                continue;
+            }
+            guessed.add(g);
+            if (word.indexOf(g) < 0) { lives--; System.out.println("Wrong! Lives left: " + lives); }
+        }
+        System.out.println("Word was: " + word);
+        return false;
+    }
+}
+
+// ------------------------------- GAME #8: Logic Puzzle (simple) -------------------------------
+class LogicPuzzle extends Time {
+    private static final String[][] QA = {
+            {"All humans are mortal. Socrates is a human. Is Socrates mortal? (yes/no)", "yes"},
+            {"If today is Monday, two days after tomorrow is? (fri/sat/sun/mon/tue/wed/thu)", "thursday"},
+            {"A farmer has 17 sheep; all but 9 die. How many are left?", "9"},
+            {"If a > b and b > c, is a > c? (yes/no)", "yes"},
+            {"Even number plus odd number is odd or even? (odd/even)", "odd"}
+    };
+    public String getName() {
+        return "Logic Puzzle";
+    }
+
+    public boolean play() {
+        long start = System.currentTimeMillis();
+        List<Integer> idx = new ArrayList<>();
+
+        for (int i=0;i<QA.length;i++) idx.add(i);
+        Collections.shuffle(idx, new Random());
+        int correct = 0;
+        for (int i=0;i<3;i++) {
+            if (!within(start, 90)) {
+                System.out.println("Time Over!"); break;
+            }
+
+            String[] q = QA[idx.get(i)];
+            System.out.print("\nQ"+(i+1)+": "+q[0]+"  ");
+            displayTime(start, 90); System.out.println();
+
+            String ans = sc.nextLine().trim().toLowerCase();
+            if (ans.equals(q[1])) { System.out.println("Correct"); correct++; }
+            else System.out.println("Wrong");
+        }
+        boolean win = correct >= 2 && within(start, 90);
+        System.out.println("Score: "+correct+"/3");
+        return win;
+    }
+}
+
+// ------------------------------- GAME MANAGER -------------------------------
+class GameManager {
+    private final List<Game> games = new ArrayList<>();
+
+    public GameManager() {
+        games.add(new Wordscramble());
+        games.add(new MathsBlitz());
+        games.add(new MemoryFlip());
+        games.add(new OddOneOut());
+        games.add(new PatternMemory());
+        games.add(new WordChain());
+        games.add(new Hangman());
+        games.add(new LogicPuzzle());
+    }
+
+    private Game pickDailyGame(int userId) {
+        LocalDate today = LocalDate.now();
+        int idx = Math.abs(Objects.hash(userId, today)) % games.size();
+        return games.get(idx);
+    }
+
+    public void playDailyGame(int userId, String username) {
+        if (!canPlay(userId)) {
+            System.out.println("\nYou already played today. Come back tomorrow!");
             return;
         }
-        Node<T> temp = head;
-        while (temp != null) {
-            System.out.println("→ " + temp.data);
-            temp = temp.next;
+        Game game = pickDailyGame(userId);
+        System.out.println("\n------------🎮 Today’s Game: " + game.getName() + "------------");
+        System.out.println("Only 1 Attempt So Play Wisely.");
+
+        boolean won = game.play();
+        saves(userId, username, game.getName(), won);
+        if (won) {
+            LeaderboardRepo.increment(userId, username, game.getName(), 10, true);
+            System.out.println("Streak +1! , Win recorded.");
+        } else {
+            LeaderboardRepo.reset(userId);
+            System.out.println("Streak reset to 0. Better luck tomorrow!");
         }
     }
 
-    public boolean isEmpty() {
-        return size == 0;
+    public void showLeaderboard() {
+        System.out.println("\n🏆 Top 10 Players (by points, tiebreaker: streak desc, last played asc)\n");
+        List<Lead> top = LeaderboardRepo.top10();
+        if (top.isEmpty()) {
+            System.out.println("No plays yet.");
+            return;
+        }
+
+        int maxName = top.stream().mapToInt(e -> e.username.length()).max().orElse(5);
+        int maxPts = top.stream().mapToInt(e -> e.points).max().orElse(1);
+        for (int i = 0; i < top.size(); i++) {
+            Lead e = top.get(i);
+            int barLen = Math.max(1, (40 * e.points) / Math.max(1, maxPts));
+            String bar = "#".repeat(barLen);
+            System.out.printf("%2d) %-" + maxName + "s  pts:%4d  streak:%3d  | %s%n",
+                    i + 1, e.username, e.points, e.streak, bar);
+        }
+        System.out.println("\n(ID, Name):");
+        for (Lead e : top) {
+            System.out.println(" - " + e.userId + ", " + e.username);
+        }
+    }
+
+    private boolean canPlay(int userId) {
+        try (Connection con = DBConnection.getConnection()) {
+            PreparedStatement ps = con.prepareStatement(
+                    "SELECT last_played_date FROM Stats WHERE user_id = ?");
+            ps.setInt(1, userId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                java.sql.Date last = rs.getDate("last_played_date");
+                if (last == null) return true;
+                LocalDate lastDate = last.toLocalDate();
+                return !LocalDate.now().isEqual(lastDate);
+            }
+            return true;
+        } catch (SQLException e) {
+            System.out.println("Error checking daily attempt: " + e.getMessage());
+            return true;
+        }
+    }
+
+    private void saves(int userId, String username, String gameName, boolean won) {
+        try (Connection con = DBConnection.getConnection()) {
+            CallableStatement cs = con.prepareCall("{CALL SaveGameSession(?, ?, ?, ?)}");
+            cs.setInt(1, userId);
+            cs.setString(2, username);
+            cs.setString(3, gameName);
+            cs.setBoolean(4, won);
+            cs.execute();
+        } catch (SQLException e) {
+            System.out.println("Error saving session via procedure: " + e.getMessage());
+        }
     }
 }
 
-public class Insta_Lite{
+// ------------------------------- LEADERBOARD -------------------------------
+class Lead {
+    int userId;
+    String username;
+    int points;
+    int streak;
+
+    Lead(int id, String name, int pts, int str) {
+        this.userId = id;
+        this.username = name;
+        this.points = pts;
+        this.streak = str;
+    }
+}
+
+class LeaderboardRepo {
+    public static void increment(int userId, String username, String gameName, int addPoints, boolean won) {
+        try (Connection con = DBConnection.getConnection()) {
+           if (won) {
+                PreparedStatement upd = con.prepareStatement(
+                        "INSERT INTO Stats (user_id, username, streak, points, last_played_date) " +
+                                "VALUES (?, ?, 1, ?, CURDATE()) " +
+                                "ON DUPLICATE KEY UPDATE streak = 1, points = ?, last_played_date = CURDATE()");
+                upd.setInt(1, userId);
+                upd.setString(2, username);
+                upd.setInt(3, addPoints);
+                upd.setInt(4, addPoints);
+                upd.executeUpdate();
+            } else {
+                PreparedStatement upd = con.prepareStatement(
+                        "INSERT INTO Stats (user_id, username, streak, points, last_played_date) " +
+                                "VALUES (?, ?, 0, 0, CURDATE()) " +
+                                "ON DUPLICATE KEY UPDATE streak = 0, last_played_date = CURDATE()");
+                upd.setInt(1, userId);
+                upd.setString(2, username);
+                upd.executeUpdate();
+            }
+        } catch (SQLException e) {
+            System.out.println("Error updating Streak: " + e.getMessage());
+        }
+    }
+
+    public static void reset(int userId) {
+        try (Connection con = DBConnection.getConnection()) {
+            PreparedStatement ps = con.prepareStatement(
+                    "INSERT INTO Stats (user_id, username, streak, points, last_played_date) " +
+                            "VALUES (?, ?, 0, 0, CURDATE()) " +
+                            "ON DUPLICATE KEY UPDATE streak = 0, last_played_date = CURDATE()");
+            ps.setInt(1, userId);
+            String username = "";
+            ps.setString(2, username);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error Resetting streak: " + e.getMessage());
+        }
+    }
+
+    public static List<Lead> top10() {
+        List<Lead> out = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection()) {
+            PreparedStatement ps = con.prepareStatement("SELECT u.Id AS user_id, u.Username, s.points, s.streak " +
+                    "FROM Stats s JOIN Users u ON u.Id = s.user_id " +
+                    "ORDER BY s.points DESC, s.streak DESC, s.last_played_date ASC LIMIT 10");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                Lead e = new Lead(
+                        rs.getInt("user_id"),
+                        rs.getString("Username"),
+                        rs.getInt("points"),
+                        rs.getInt("streak"));
+                out.add(e);
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching leaderboard: " + e.getMessage());
+        }
+        return out;
+    }
+}
+
+// ------------------------------- MAIN -------------------------------
+class Games {
+    private final GameManager manager = new GameManager();
+    public void play(int userId, String username) {
+        manager.playDailyGame(userId, username);
+    }
+    public void showLeaderboard() {
+        manager.showLeaderboard();
+    }
+}
+
+public class INSTA_LITE {
     static Scanner sc = new Scanner(System.in);
-    public static void main(String[] args) {
-        DBConnection.initializeDatabase();
-
-        User user = new User();
-        Search search = new Search();
-        Account acc = new Account();
-        Message msg = new Message();
+    public static void main(String[] args)throws Exception {
+        User user = new User();   Search search = new Search();
+        Account acc = new Account();  Message msg = new Message();
         Reels_Management reel = new Reels_Management();
-        Games games = new Games();
-        Wellbeing wellbeing = new Wellbeing();
-        boolean b = true;
 
+        Games games = new Games();
+        boolean b = true;
         do{
-            if(!User.isLoggedIn()) {
+            if(!user.isLoggedIn()) {
                 System.out.println("\n ----------- WELCOME TO INSTA_LITE CONSOLE  ----------- \n");
                 System.out.println("1. Create Account");
                 System.out.println("2. Login");
                 System.out.println("3. Forget Password");
                 System.out.println("4. Exit");
                 System.out.print("Enter Choice : ");
+                int choice = sc.nextInt(); System.out.println();
 
-                int choice = -1;
-                try { choice = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input. Try again."); continue; }
-
-                System.out.println();
                 switch (choice) {
                     case 1: user.createAccount(); break;
                     case 2: user.log_In(); break;
                     case 3: acc.forgotPassword(); break;
                     case 4: b=false; break;
-                    default: System.out.println("Invalid Choice.");
                 }
             }
             else{
                 System.out.println("==========================");
-                System.out.println("1. Create A Post");
-                System.out.println("2. Upload Reel");
-                System.out.println("3. Scroll Reels");
-                System.out.println("4. Send a Message");
-                System.out.println("5. Check Inbox");
-                System.out.println("6. Search Profile");
-                System.out.println("7. Send A Friend Request");
-                System.out.println("8. View Liked Reels");
-                System.out.println("9. View Saved Reels");
-                System.out.println("10. Delete Account");
-                System.out.println("11. Deactivate Account");
-                System.out.println("12. Log Out");
-                System.out.println("13. Play a Quick Game 🕹️");
-                System.out.println("14. Show Game Leaderboard 🏆");
-                System.out.println("15. Track Wellbeing Session 🧘");
-                System.out.println("16. View Wellbeing Summary");
-                System.out.println("17. EXIT");
+                System.out.println("1.Create A Post");
+                System.out.println("2.Upload Reel");
+                System.out.println("3.Scroll Reels");
+                System.out.println("4.Digital Wellbeing Report");
+                System.out.println("5.Send a Message");
+                System.out.println("6.Check Inbox");
+                System.out.println("7.Search Profile");
+                System.out.println("8.Send A Friend Request");
+                System.out.println("9.View Liked Reels");
+                System.out.println("10.View Saved Reels");
+                System.out.println("11.Delete Account");
+                System.out.println("12.Deactivate Account");
+                System.out.println("13.Log Out");
+                System.out.println("14.EXIT");
+                System.out.println("15.Play InstaLite Game");
+                System.out.println("16.View Leaderboard");
                 System.out.println("==========================");
                 System.out.print("Enter Choice : ");
-
-                int choice = -1;
-                try { choice = Integer.parseInt(sc.nextLine()); } catch (NumberFormatException e) { System.out.println("Invalid input. Try again."); continue; }
+                int choice = sc.nextInt();
 
                 switch (choice) {
                     case 1: reel.post();break;
                     case 2: reel.upload();break;
                     case 3: reel.scrollReels(User.getLoggedInUserId());break;
-                    case 4: msg.sendMessage(User.getLoggedInUserId());break;
-                    case 5: msg.inbox();break;
-                    case 6:
-                        System.out.print("Enter Username to Search: ");
-                        String name = sc.nextLine();
-                        search.display(name);
-                        break;
-                    case 7:
-                        System.out.print("Enter Username to Send Friend Request: ");
+                    case 4: reel.digitalWellbeingReport(User.getLoggedInUserId()); break;
+
+                    case 5: msg.sendMessage(User.getLoggedInUserId());break;
+                    case 6: msg.inbox();break;
+                    case 7: System.out.print("Enter Username to Search: ");
+                        String name = sc.next();
+                        search.display(name);break;
+                    case 8: System.out.print("Enter Username: ");
+                        String rname = sc.nextLine();
                         String receiverUsername = sc.nextLine();
                         int receiverId = user.check(receiverUsername);
 
                         if (receiverId == -1) {
                             System.out.println("User not found.");
-                        } else if (receiverId == User.getLoggedInUserId()) {
-                            System.out.println("You cannot send a friend request to yourself.");
                         } else {
                             user.sendRequest(User.getLoggedInUserId(), receiverId);
                         }
                         break;
-                    case 8: reel.viewLikedReels(User.getLoggedInUserId());break;
-                    case 9: reel.viewSavedReels(User.getLoggedInUserId());break;
-                    case 10: acc.delete();break;
-                    case 11: acc.deactivate();break;
-                    case 12: user.logout();break;
-                    case 13: games.play(User.getLoggedInUserId(), User.getLoggedInUserName()); break;
-                    case 14: games.showLeaderboard(); break;
-                    case 15: wellbeing.trackSession(User.getLoggedInUserId()); break;
-                    case 16: wellbeing.viewSummary(User.getLoggedInUserId()); break;
-                    case 17:
+                    case 9: reel.viewLikedReels(User.getLoggedInUserId());break;
+                    case 10: reel.viewSavedReels(User.getLoggedInUserId());break;
+                    case 11: acc.delete();break;
+                    case 12: acc.deactivate();break;
+                    case 13: user.logout();break;
+                    case 14:
                         System.out.println("Goodbye! ");
                         b = false;
                         break;
-                    default: System.out.println("Invalid Choice.");
+                    case 15: games.play(User.getLoggedInUserId(), User.getLoggedInUserName()); break;
+                    case 16: games.showLeaderboard(); break;
                 }
             }
         }while(b);
